@@ -3,7 +3,7 @@
 <head>
   <title>Synced Red/Green Button</title>
   <style>
-    #colorButton {
+    #game_dataButton {
       width: 200px;
       height: 100px;
       font-size: 24px;
@@ -14,78 +14,78 @@
   </style>
 </head>
 <body>
-  <button id="colorButton">Loading...</button>
+  <button id="game_dataButton">Loading...</button>
 
   <!-- Supabase JS v2 -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    // Your Supabase credentials
     const SUPABASE_URL = 'https://tbmbktcllfqzqtmublqr.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWJrdGNsbGZxenF0bXVibHFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODA0OTMsImV4cCI6MjA2ODA1NjQ5M30.xkEKRXwcbieIaLTvawaQFkRRXffPQn2yjHAIZXapvj4';
 
     const { createClient } = supabase;
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    const button = document.getElementById('colorButton');
+    const button = document.getElementById('game_dataButton');
     let currentColor = null;
 
-    function updateButton(color) {
-      currentColor = color;
-      button.style.backgroundColor = color;
-      button.textContent = `Color is ${color.toUpperCase()}`;
+    function updateButton(game_data) {
+      currentColor = game_data;
+      button.style.backgroundColor = game_data;
+      button.textContent = `Color is ${game_data.toUpperCase()}`;
     }
 
     async function loadColor() {
       const { data, error } = await supabaseClient
-        .from('color_state')
-        .select('color')
+        .from('werewolf')
+        .select('game_data')
         .eq('id', 1)
         .single();
 
       if (error) {
-        console.error('Error loading color:', error);
-        button.textContent = 'Error loading color';
+        console.error('Error loading game_data:', error);
+        button.textContent = 'Error loading game_data';
         return;
       }
 
-      updateButton(data.color);
+      updateButton(data.game_data);
     }
 
     button.onclick = async () => {
       const newColor = currentColor === 'red' ? 'green' : 'red';
       const { error } = await supabaseClient
-        .from('color_state')
-        .update({ color: newColor })
+        .from('werewolf')
+        .update({ game_data: newColor })
         .eq('id', 1);
 
       if (error) {
-        console.error('Error updating color:', error);
+        console.error('Error updating game_data:', error);
       }
     };
 
-    // Realtime subscription
-    supabaseClient
-      .channel('color_sync')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'color_state',
-          filter: 'id=eq.1'
-        },
-        (payload) => {
-          const color = payload.new.color;
-          updateButton(color);
-        }
-      )
-      .subscribe();
+    // Run everything inside an async function
+    (async function () {
+      // Initial game_data load
+      await loadColor();
 
-    // Fallback polling every 10 seconds
-    setInterval(loadColor, 10000);
+      // Realtime listener
+      const channel = supabaseClient.channel('game_data_sync');
 
-    // Initial load
-    loadColor();
+      await channel
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'werewolf',
+            filter: 'id=eq.1'
+          },
+          (payload) => {
+            const game_data = payload.new.game_data;
+            console.log('Realtime update received:', game_data);
+            updateButton(game_data);
+          }
+        )
+        .subscribe();
+    })();
   </script>
 </body>
 </html>
