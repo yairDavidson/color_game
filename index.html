@@ -35,7 +35,7 @@
 
     async function loadColor() {
       const { data, error } = await supabaseClient
-        .from('werewolf')
+        .from('color_game')
         .select('game_data')
         .eq('id', 1)
         .single();
@@ -52,7 +52,7 @@
     button.onclick = async () => {
       const newColor = currentColor === 'red' ? 'green' : 'red';
       const { error } = await supabaseClient
-        .from('werewolf')
+        .from('color_game')
         .update({ game_data: newColor })
         .eq('id', 1);
 
@@ -75,7 +75,7 @@
           {
             event: 'UPDATE',
             schema: 'public',
-            table: 'werewolf',
+            table: 'color_game',
             filter: 'id=eq.1'
           },
           (payload) => {
