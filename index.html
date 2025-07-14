@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Synced Red/Green Button</title>
+  <style>
+    #colorButton {
+      width: 200px;
+      height: 100px;
+      font-size: 24px;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <button id="colorButton">Loading...</button>
+
+  <!-- Supabase JS client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // Replace these with your project's URL and anon key
+    const SUPABASE_URL = 'https://tbmbktcllfqzqtmublqr.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWJrdGNsbGZxenF0bXVibHFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODA0OTMsImV4cCI6MjA2ODA1NjQ5M30.xkEKRXwcbieIaLTvawaQFkRRXffPQn2yjHAIZXapvj4';
+
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const button = document.getElementById('colorButton');
+
+    let currentColor = null;
+
+    // Function to update button color and text
+    function updateButton(color) {
+      currentColor = color;
+      button.style.backgroundColor = color;
+      button.textContent = `Color is ${color.toUpperCase()}`;
+    }
+
+    // Load initial color from DB
+    async function loadColor() {
+      let { data, error } = await supabase
+        .from('color_state')
+        .select('color')
+        .eq('id', 1)
+        .single();
+
+      if (error) {
+        console.error('Error loading color:', error);
+        button.textContent = 'Error loading color';
+        return;
+      }
+      updateButton(data.color);
+    }
+
+    // Subscribe to changes on the color_state table
+    supabase
+      .channel('public:color_state')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'color_state', filter: 'id=eq.1' },
+        (payload) => {
+          updateButton(payload.new.color);
+        }
+      )
+      .subscribe();
+
+    // On button click, switch color and update DB
+    button.onclick = async () => {
+      const newColor = currentColor === 'red' ? 'green' : 'red';
+      const { error } = await supabase
+        .from('color_state')
+        .update({ color: newColor })
+        .eq('id', 1);
+      if (error) {
+        console.error('Error updating color:', error);
+      }
+    };
+
+    // Start by loading the current color
+    loadColor();
+  </script>
+</body>
+</html>
