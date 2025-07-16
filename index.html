@@ -1,91 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Synced Red/Green Button</title>
+  <title>Global Button</title>
   <style>
-    #game_dataButton {
-      width: 500px;
-      height: 300px;
-      font-size: 50px;
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin-top: 100px;
+    }
+
+    #colorBtn {
+      padding: 20px 60px;
+      font-size: 24px;
       border: none;
+      border-radius: 10px;
       color: white;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <button id="game_dataButton">Loading...</button>
+  <h1>Global Synced Button</h1>
+  <button id="colorBtn">Loading...</button>
 
-  <!-- Supabase JS v2 -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
   <script>
-    const SUPABASE_URL = 'https://tbmbktcllfqzqtmublqr.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWJrdGNsbGZxenF0bXVibHFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI0ODA0OTMsImV4cCI6MjA2ODA1NjQ5M30.xkEKRXwcbieIaLTvawaQFkRRXffPQn2yjHAIZXapvj4';
+    // Replace this with your Firebase config
+    const firebaseConfig = {
+  apiKey: "AIzaSyAE1dCOpq-60AOvsiA0Jjwp2fQzR6pT6Ho",
+  authDomain: "button-switch.firebaseapp.com",
+  databaseURL: "https://button-switch-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "button-switch",
+  storageBucket: "button-switch.firebasestorage.app",
+  messagingSenderId: "539954061254",
+  appId: "1:539954061254:web:fcffa655892c9094cfdcc7",
+  };
 
-    const { createClient } = supabase;
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const button = document.getElementById('game_dataButton');
-    let currentColor = null;
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const colorRef = db.ref("globalButtonColor");
 
-    function updateButton(game_data) {
-      currentColor = game_data;
-      button.style.backgroundColor = game_data;
-      button.textContent = `Color is ${game_data.toUpperCase()}`;
-    }
+    const btn = document.getElementById("colorBtn");
 
-    async function loadColor() {
-      const { data, error } = await supabaseClient
-        .from('color_game')
-        .select('game_data')
-        .eq('id', 1)
-        .single();
+    // Update button color when data changes
+    colorRef.on("value", snapshot => {
+      const color = snapshot.val() || "green";
+      btn.style.backgroundColor = color;
+      btn.textContent = color.toUpperCase();
+    });
 
-      if (error) {
-        console.error('Error loading game_data:', error);
-        button.textContent = 'Error loading game_data';
-        return;
-      }
-
-      updateButton(data.game_data);
-    }
-
-    button.onclick = async () => {
-      const newColor = currentColor === 'red' ? 'green' : 'red';
-      const { error } = await supabaseClient
-        .from('color_game')
-        .update({ game_data: newColor })
-        .eq('id', 1);
-
-      if (error) {
-        console.error('Error updating game_data:', error);
-      }
+    // Toggle color on click
+    btn.onclick = () => {
+      colorRef.once("value").then(snapshot => {
+        const current = snapshot.val();
+        const next = current === "green" ? "red" : "green";
+        colorRef.set(next);
+      });
     };
-
-    // Run everything inside an async function
-    (async function () {
-      // Initial game_data load
-      await loadColor();
-
-      // Realtime listener
-      const channel = supabaseClient.channel('game_data_sync');
-
-      await channel
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'color_game',
-            filter: 'id=eq.1'
-          },
-          (payload) => {
-            const game_data = payload.new.game_data;
-            console.log('Realtime update received:', game_data);
-            updateButton(game_data);
-          }
-        )
-        .subscribe();
-    })();
   </script>
 </body>
 </html>
